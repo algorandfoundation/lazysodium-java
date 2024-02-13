@@ -36,6 +36,7 @@ public class Ed25519Test extends BaseTest {
 
         m = Ed25519.bytesToScalar(Ed25519.scalarToBytes(n, false));
         assertEquals(n, m);
+        throw (new RuntimeException("Not implemented"));
     }
 
     @Test
@@ -124,7 +125,7 @@ public class Ed25519Test extends BaseTest {
     }
 
     @Test
-    public void fromHash() throws Exception {
+    public void fromUniform() throws Exception {
         byte[] hash = new byte[64];
         new Random().nextBytes(hash);
 

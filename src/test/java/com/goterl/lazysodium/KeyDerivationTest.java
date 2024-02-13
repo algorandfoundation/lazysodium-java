@@ -18,14 +18,15 @@ import java.security.SecureRandom;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-
 public class KeyDerivationTest extends BaseTest {
 
-    static final byte[] LONG_CONTEXT = new byte[]{0, 1, 2, 3, 4, 5, 6, 7, 8};
-    static final byte[] VALID_CONTEXT = new byte[]{0, 1, 2, 3, 4, 5, 6, 7};
-    static final byte[] SHORT_CONTEXT = new byte[]{0, 1, 2, 3, 4, 5};
-    static final byte[] VALID_KEY = new byte[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
-    static final byte[] OUT_VALID_KEY_VALID_CONTEXT_1 = new byte[]{61, -17, -126, -25, -14, 29, 2, -83, 89, -120, 37, -35, 102, -11, -77, -59};
+    static final byte[] LONG_CONTEXT = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+    static final byte[] VALID_CONTEXT = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7 };
+    static final byte[] SHORT_CONTEXT = new byte[] { 0, 1, 2, 3, 4, 5 };
+    static final byte[] VALID_KEY = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+            20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 };
+    static final byte[] OUT_VALID_KEY_VALID_CONTEXT_1 = new byte[] { 61, -17, -126, -25, -14, 29, 2, -83, 89, -120, 37,
+            -35, 102, -11, -77, -59 };
     private KeyDerivation.Native keyDerivation;
     private KeyDerivation.Lazy keyDerivationLazy;
 
@@ -47,8 +48,7 @@ public class KeyDerivationTest extends BaseTest {
         byte[] subKey = new byte[KeyDerivation.BYTES_MAX];
         keyDerivation.cryptoKdfDeriveFromKey(
                 subKey, subKey.length, 1L,
-                context, masterKey
-        );
+                context, masterKey);
 
         String skStr = lazySodium.toHexStr(subKey);
 
@@ -58,8 +58,7 @@ public class KeyDerivationTest extends BaseTest {
                 KeyDerivation.BYTES_MAX,
                 1L,
                 contextStr,
-                Key.fromBytes(masterKey)
-        );
+                Key.fromBytes(masterKey));
 
         assertEquals(skStr, skStr2.getAsHexString());
     }

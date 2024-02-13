@@ -198,6 +198,10 @@ processResources {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
+sourcesJar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 // Force character encoding in case the workspace was not set up correctly
 tasks.withType(Javadoc) {
     options.encoding = 'UTF-8'
@@ -226,4 +230,8 @@ tasks.withType(Test) {
             }
         }
     }
+}
+
+test {
+  useJUnitPlatform()
 }
