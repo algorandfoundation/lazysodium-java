@@ -9,7 +9,7 @@
 package com.goterl.lazysodium;
 
 import org.junit.jupiter.api.Test;
-import org.junit.Ignore;
+import org.junit.jupiter.api.Disabled;
 
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
@@ -23,7 +23,7 @@ public class SodiumJavaTest {
     // It is supposed to work with 'sodium', 'libsodium.so' (platform dependent) and
     // '/usr/lib/x86_64-linux-gnu/libsodium.so'
 
-    @Ignore
+    @Disabled
     public void canLoadWithSystemLibrary() {
         SodiumJava sodium = new SodiumJava("sodium");
         int initResult = sodium.sodium_init();
