@@ -10,8 +10,8 @@ package com.goterl.lazysodium;
 
 import com.goterl.lazysodium.exceptions.SodiumException;
 import com.goterl.lazysodium.interfaces.*;
-import com.goterl.lazysodium.interfaces.Ristretto255.Checker;
 import com.goterl.lazysodium.interfaces.Ristretto255.RistrettoPoint;
+import com.goterl.lazysodium.interfaces.Ed25519.Ed25519Point;
 import com.goterl.lazysodium.utils.*;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
@@ -43,7 +43,8 @@ public abstract class LazySodium implements
         KeyExchange.Native, KeyExchange.Lazy,
         KeyDerivation.Native, KeyDerivation.Lazy,
         DiffieHellman.Native, DiffieHellman.Lazy,
-        Ristretto255.Native, Ristretto255.Lazy {
+        Ristretto255.Native, Ristretto255.Lazy,
+        Ed25519.Native, Ed25519.Lazy {
 
     protected final Charset charset;
     protected final MessageEncoder messageEncoder;
@@ -53,6 +54,7 @@ public abstract class LazySodium implements
     public LazySodium() {
         this(StandardCharsets.UTF_8, new HexMessageEncoder());
     }
+
     public LazySodium(Charset charset) {
         this(charset, new HexMessageEncoder());
     }
@@ -72,7 +74,6 @@ public abstract class LazySodium implements
         }
         return Math.toIntExact(lng);
     }
-
 
     //// -------------------------------------------|
     //// HELPERS
@@ -102,7 +103,8 @@ public abstract class LazySodium implements
     }
 
     /**
-     * Bytes to hexadecimal. Equivalent to {@link #sodiumBin2Hex(byte[])} but static.
+     * Bytes to hexadecimal. Equivalent to {@link #sodiumBin2Hex(byte[])} but
+     * static.
      *
      * @param bin Byte array.
      * @return Hexadecimal string.
@@ -111,9 +113,9 @@ public abstract class LazySodium implements
         return bytesToHex(bin);
     }
 
-
     /**
-     * Hexadecimal string to bytes. Equivalent to {@link #sodiumHex2Bin(String)}} but static.
+     * Hexadecimal string to bytes. Equivalent to {@link #sodiumHex2Bin(String)}}
+     * but static.
      *
      * @param hex Hexadecimal string to convert to bytes.
      * @return Byte array.
@@ -121,7 +123,6 @@ public abstract class LazySodium implements
     public static byte[] toBin(String hex) {
         return hexToBytes(hex);
     }
-
 
     private static final char[] hexArray = "0123456789ABCDEF".toCharArray();
 
@@ -146,7 +147,6 @@ public abstract class LazySodium implements
         }
         return data;
     }
-
 
     //// -------------------------------------------|
     //// RANDOM
@@ -181,13 +181,13 @@ public abstract class LazySodium implements
         return bs;
     }
 
-
     //// -------------------------------------------|
     //// PADDING
     //// -------------------------------------------|
 
     @Override
-    public boolean sodiumPad(IntByReference paddedBuffLen, Pointer buf, int unpaddedBufLen, int blockSize, int maxBufLen) {
+    public boolean sodiumPad(IntByReference paddedBuffLen, Pointer buf, int unpaddedBufLen, int blockSize,
+            int maxBufLen) {
         return successful(getSodium().sodium_pad(paddedBuffLen, buf, unpaddedBufLen, blockSize, maxBufLen));
     }
 
@@ -195,7 +195,6 @@ public abstract class LazySodium implements
     public boolean sodiumUnpad(IntByReference unPaddedBuffLen, Pointer buf, int paddedBufLen, int blockSize) {
         return successful(getSodium().sodium_unpad(unPaddedBuffLen, buf, paddedBufLen, blockSize));
     }
-
 
     //// -------------------------------------------|
     //// SECURE MEMORY
@@ -246,7 +245,6 @@ public abstract class LazySodium implements
         return successful(getSodium().sodium_mprotect_readwrite(ptr));
     }
 
-
     //// -------------------------------------------|
     //// KDF KEYGEN
     //// -------------------------------------------|
@@ -270,6 +268,10 @@ public abstract class LazySodium implements
         if (context.length != KeyDerivation.CONTEXT_BYTES) {
             throw new IllegalArgumentException("Context length is wrong: " + context.length);
         }
+        if (masterKey.length != KeyDerivation.MASTER_KEY_BYTES) {
+            throw new IllegalArgumentException("Master key length is wrong: " + masterKey.length);
+        }
+
         return getSodium().crypto_kdf_derive_from_key(subKey, subKeyLen, subKeyId, context, masterKey);
     }
 
@@ -301,15 +303,13 @@ public abstract class LazySodium implements
                 lengthOfSubKey,
                 subKeyId,
                 contextAsBytes,
-                masterKeyAsBytes
-        );
+                masterKeyAsBytes);
 
         if (!successful(res)) {
             throw new SodiumException("Failed kdfDeriveFromKey.");
         }
         return Key.fromBytes(subKey);
     }
-
 
     //// -------------------------------------------|
     //// KEY EXCHANGE
@@ -335,7 +335,6 @@ public abstract class LazySodium implements
         return successful(getSodium().crypto_kx_server_session_keys(rx, tx, serverPk, serverSk, clientPk));
     }
 
-
     // -- Lazy functions
 
     @Override
@@ -358,10 +357,10 @@ public abstract class LazySodium implements
         return new KeyPair(Key.fromBytes(publicKey), Key.fromBytes(secretKey));
     }
 
-
     @Override
     public SessionPair cryptoKxClientSessionKeys(KeyPair clientKeyPair, KeyPair serverKeyPair) throws SodiumException {
-        return cryptoKxClientSessionKeys(clientKeyPair.getPublicKey(), clientKeyPair.getSecretKey(), serverKeyPair.getPublicKey());
+        return cryptoKxClientSessionKeys(clientKeyPair.getPublicKey(), clientKeyPair.getSecretKey(),
+                serverKeyPair.getPublicKey());
     }
 
     @Override
@@ -390,9 +389,9 @@ public abstract class LazySodium implements
 
     @Override
     public SessionPair cryptoKxServerSessionKeys(KeyPair serverKeyPair, KeyPair clientKeyPair) throws SodiumException {
-        return cryptoKxServerSessionKeys(serverKeyPair.getPublicKey(), serverKeyPair.getSecretKey(), clientKeyPair.getPublicKey());
+        return cryptoKxServerSessionKeys(serverKeyPair.getPublicKey(), serverKeyPair.getSecretKey(),
+                clientKeyPair.getPublicKey());
     }
-
 
     //// -------------------------------------------|
     //// PASSWORD HASHING
@@ -400,13 +399,13 @@ public abstract class LazySodium implements
 
     @Override
     public boolean cryptoPwHash(byte[] outputHash,
-                                int outputHashLen,
-                                byte[] password,
-                                int passwordLen,
-                                byte[] salt,
-                                long opsLimit,
-                                NativeLong memLimit,
-                                PwHash.Alg alg) {
+            int outputHashLen,
+            byte[] password,
+            int passwordLen,
+            byte[] salt,
+            long opsLimit,
+            NativeLong memLimit,
+            PwHash.Alg alg) {
         if (outputHashLen < 0 || outputHashLen > outputHash.length) {
             throw new IllegalArgumentException("outputHashLen out of bounds: " + outputHashLen);
         }
@@ -426,10 +425,10 @@ public abstract class LazySodium implements
 
     @Override
     public boolean cryptoPwHashStr(byte[] outputStr,
-                                   byte[] password,
-                                   int passwordLen,
-                                   long opsLimit,
-                                   NativeLong memLimit) {
+            byte[] password,
+            int passwordLen,
+            long opsLimit,
+            NativeLong memLimit) {
         if (passwordLen < 0 || passwordLen > password.length) {
             throw new IllegalArgumentException("passwordLen out of bounds: " + passwordLen);
         }
@@ -450,21 +449,21 @@ public abstract class LazySodium implements
         return successful(getSodium().crypto_pwhash_str_needs_rehash(hash, opsLimit, memLimit));
     }
 
-
     // lazy
 
     @Override
-    public String cryptoPwHash(String password, int lengthOfHash, byte[] salt, long opsLimit, NativeLong memLimit, PwHash.Alg alg)
+    public String cryptoPwHash(String password, int lengthOfHash, byte[] salt, long opsLimit, NativeLong memLimit,
+            PwHash.Alg alg)
             throws SodiumException {
         byte[] passwordBytes = bytes(password);
         PwHash.Checker.checkAll(passwordBytes.length, salt.length, opsLimit, memLimit);
         byte[] hash = new byte[lengthOfHash];
-        int res = getSodium().crypto_pwhash(hash, hash.length, passwordBytes, passwordBytes.length, salt, opsLimit, memLimit, alg.getValue());
+        int res = getSodium().crypto_pwhash(hash, hash.length, passwordBytes, passwordBytes.length, salt, opsLimit,
+                memLimit, alg.getValue());
         if (res != 0) {
             throw new SodiumException(
                     "Could not hash your string. This may be due to insufficient " +
-                            "memory or your CPU does not support Argon2's instruction set."
-            );
+                            "memory or your CPU does not support Argon2's instruction set.");
         }
         return messageEncoder.encode(hash);
     }
@@ -481,7 +480,8 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public String cryptoPwHashStrRemoveNulls(String password, long opsLimit, NativeLong memLimit) throws SodiumException {
+    public String cryptoPwHashStrRemoveNulls(String password, long opsLimit, NativeLong memLimit)
+            throws SodiumException {
         byte[] hash = new byte[PwHash.STR_BYTES];
         byte[] passwordBytes = bytes(password);
         boolean res = cryptoPwHashStr(hash, passwordBytes, passwordBytes.length, opsLimit, memLimit);
@@ -508,15 +508,12 @@ public abstract class LazySodium implements
             hashBytes = hashWithNullByte;
         }
 
-
         return cryptoPwHashStrVerify(hashBytes, passwordBytes, passwordBytes.length);
     }
-
 
     //// -------------------------------------------|
     //// HASH
     //// -------------------------------------------|
-
 
     @Override
     public boolean cryptoHashSha256(byte[] out, byte[] in, long inLen) {
@@ -572,7 +569,6 @@ public abstract class LazySodium implements
 
     // -- lazy
 
-
     @Override
     public String cryptoHashSha256(String message) throws SodiumException {
         byte[] msgBytes = bytes(message);
@@ -593,7 +589,6 @@ public abstract class LazySodium implements
         return messageEncoder.encode(hashedBytes);
     }
 
-
     @Override
     public boolean cryptoHashSha256Update(Hash.State256 state, String messagePart) {
         byte[] msgBytes = bytes(messagePart);
@@ -609,7 +604,6 @@ public abstract class LazySodium implements
         return messageEncoder.encode(finalHash);
     }
 
-
     @Override
     public boolean cryptoHashSha512Update(Hash.State512 state, String messagePart) {
         byte[] msgBytes = bytes(messagePart);
@@ -624,7 +618,6 @@ public abstract class LazySodium implements
         }
         return messageEncoder.encode(finalHash);
     }
-
 
     //// -------------------------------------------|
     //// SECRET BOX
@@ -644,7 +637,8 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoSecretBoxOpenEasy(byte[] message, byte[] cipherText, long cipherTextLen, byte[] nonce, byte[] key) {
+    public boolean cryptoSecretBoxOpenEasy(byte[] message, byte[] cipherText, long cipherTextLen, byte[] nonce,
+            byte[] key) {
         if (cipherTextLen < 0 || cipherTextLen > cipherText.length) {
             throw new IllegalArgumentException("cipherTextLen out of bounds: " + cipherTextLen);
         }
@@ -652,7 +646,8 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoSecretBoxDetached(byte[] cipherText, byte[] mac, byte[] message, long messageLen, byte[] nonce, byte[] key) {
+    public boolean cryptoSecretBoxDetached(byte[] cipherText, byte[] mac, byte[] message, long messageLen, byte[] nonce,
+            byte[] key) {
         if (messageLen < 0 || messageLen > message.length) {
             throw new IllegalArgumentException("messageLen out of bounds: " + messageLen);
         }
@@ -660,13 +655,14 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoSecretBoxOpenDetached(byte[] message, byte[] cipherText, byte[] mac, long cipherTextLen, byte[] nonce, byte[] key) {
+    public boolean cryptoSecretBoxOpenDetached(byte[] message, byte[] cipherText, byte[] mac, long cipherTextLen,
+            byte[] nonce, byte[] key) {
         if (cipherTextLen < 0 || cipherTextLen > cipherText.length) {
             throw new IllegalArgumentException("cipherTextLen out of bounds: " + cipherTextLen);
         }
-        return successful(getSodium().crypto_secretbox_open_detached(message, cipherText, mac, cipherTextLen, nonce, key));
+        return successful(
+                getSodium().crypto_secretbox_open_detached(message, cipherText, mac, cipherTextLen, nonce, key));
     }
-
 
     /// --- Lazy
 
@@ -696,7 +692,6 @@ public abstract class LazySodium implements
         byte[] cipherBytes = messageEncoder.decode(cipher);
         byte[] messageBytes = new byte[cipherBytes.length - SecretBox.MACBYTES];
 
-
         if (!cryptoSecretBoxOpenEasy(messageBytes, cipherBytes, cipherBytes.length, nonce, keyBytes)) {
             throw new SodiumException("Could not decrypt message.");
         }
@@ -719,12 +714,12 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public String cryptoSecretBoxOpenDetached(DetachedEncrypt cipherAndMac, byte[] nonce, Key key) throws SodiumException {
+    public String cryptoSecretBoxOpenDetached(DetachedEncrypt cipherAndMac, byte[] nonce, Key key)
+            throws SodiumException {
         byte[] keyBytes = key.getAsBytes();
         byte[] cipherBytes = cipherAndMac.getCipher();
         byte[] macBytes = cipherAndMac.getMac();
         byte[] messageBytes = new byte[cipherBytes.length];
-
 
         if (!cryptoSecretBoxOpenDetached(messageBytes, cipherBytes, macBytes, cipherBytes.length, nonce, keyBytes)) {
             throw new SodiumException("Could not decrypt detached message.");
@@ -732,7 +727,6 @@ public abstract class LazySodium implements
 
         return str(messageBytes);
     }
-
 
     //// -------------------------------------------|
     //// DIFFIE HELLMAN
@@ -762,7 +756,6 @@ public abstract class LazySodium implements
         return Key.fromBytes(sharedKey);
     }
 
-
     // -------------------------------------------|
     //// CRYPTO BOX
     //// -------------------------------------------|
@@ -778,7 +771,8 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoBoxEasy(byte[] cipherText, byte[] message, long messageLen, byte[] nonce, byte[] publicKey, byte[] secretKey) {
+    public boolean cryptoBoxEasy(byte[] cipherText, byte[] message, long messageLen, byte[] nonce, byte[] publicKey,
+            byte[] secretKey) {
         if (messageLen < 0 || messageLen > message.length) {
             throw new IllegalArgumentException("messageLen out of bounds: " + messageLen);
         }
@@ -786,27 +780,33 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoBoxOpenEasy(byte[] message, byte[] cipherText, long cipherTextLen, byte[] nonce, byte[] publicKey, byte[] secretKey) {
+    public boolean cryptoBoxOpenEasy(byte[] message, byte[] cipherText, long cipherTextLen, byte[] nonce,
+            byte[] publicKey, byte[] secretKey) {
         if (cipherTextLen < 0 || cipherTextLen > cipherText.length) {
             throw new IllegalArgumentException("cipherTextLen out of bounds: " + cipherTextLen);
         }
-        return successful(getSodium().crypto_box_open_easy(message, cipherText, cipherTextLen, nonce, publicKey, secretKey));
+        return successful(
+                getSodium().crypto_box_open_easy(message, cipherText, cipherTextLen, nonce, publicKey, secretKey));
     }
 
     @Override
-    public boolean cryptoBoxDetached(byte[] cipherText, byte[] mac, byte[] message, long messageLen, byte[] nonce, byte[] publicKey, byte[] secretKey) {
+    public boolean cryptoBoxDetached(byte[] cipherText, byte[] mac, byte[] message, long messageLen, byte[] nonce,
+            byte[] publicKey, byte[] secretKey) {
         if (messageLen < 0 || messageLen > message.length) {
             throw new IllegalArgumentException("messageLen out of bounds: " + messageLen);
         }
-        return successful(getSodium().crypto_box_detached(cipherText, mac, message, messageLen, nonce, publicKey, secretKey));
+        return successful(
+                getSodium().crypto_box_detached(cipherText, mac, message, messageLen, nonce, publicKey, secretKey));
     }
 
     @Override
-    public boolean cryptoBoxOpenDetached(byte[] message, byte[] cipherText, byte[] mac, long cipherTextLen, byte[] nonce, byte[] publicKey, byte[] secretKey) {
+    public boolean cryptoBoxOpenDetached(byte[] message, byte[] cipherText, byte[] mac, long cipherTextLen,
+            byte[] nonce, byte[] publicKey, byte[] secretKey) {
         if (cipherTextLen < 0 || cipherTextLen > cipherText.length) {
             throw new IllegalArgumentException("cipherTextLen out of bounds: " + cipherTextLen);
         }
-        return successful(getSodium().crypto_box_open_detached(message, cipherText, mac, cipherTextLen, nonce, publicKey, secretKey));
+        return successful(getSodium().crypto_box_open_detached(message, cipherText, mac, cipherTextLen, nonce,
+                publicKey, secretKey));
     }
 
     @Override
@@ -831,7 +831,8 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoBoxDetachedAfterNm(byte[] cipherText, byte[] mac, byte[] message, long messageLen, byte[] nonce, byte[] key) {
+    public boolean cryptoBoxDetachedAfterNm(byte[] cipherText, byte[] mac, byte[] message, long messageLen,
+            byte[] nonce, byte[] key) {
         if (messageLen < 0 || messageLen > message.length) {
             throw new IllegalArgumentException("messageLen out of bounds: " + messageLen);
         }
@@ -839,11 +840,13 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoBoxOpenDetachedAfterNm(byte[] message, byte[] cipherText, byte[] mac, long cipherTextLen, byte[] nonce, byte[] key) {
+    public boolean cryptoBoxOpenDetachedAfterNm(byte[] message, byte[] cipherText, byte[] mac, long cipherTextLen,
+            byte[] nonce, byte[] key) {
         if (cipherTextLen < 0 || cipherTextLen > cipherText.length) {
             throw new IllegalArgumentException("cipherTextLen out of bounds: " + cipherTextLen);
         }
-        return successful(getSodium().crypto_box_open_detached_afternm(message, cipherText, mac, cipherTextLen, nonce, key));
+        return successful(
+                getSodium().crypto_box_open_detached_afternm(message, cipherText, mac, cipherTextLen, nonce, key));
     }
 
     @Override
@@ -887,7 +890,6 @@ public abstract class LazySodium implements
         return new KeyPair(Key.fromBytes(publicKey), Key.fromBytes(secretKey));
     }
 
-
     @Override
     public String cryptoBoxEasy(String message, byte[] nonce, KeyPair keyPair) throws SodiumException {
         byte[] messageBytes = bytes(message);
@@ -898,8 +900,7 @@ public abstract class LazySodium implements
                 messageBytes.length,
                 nonce,
                 keyPair.getPublicKey().getAsBytes(),
-                keyPair.getSecretKey().getAsBytes()
-        );
+                keyPair.getSecretKey().getAsBytes());
         if (!res) {
             throw new SodiumException("Could not encrypt your message.");
         }
@@ -910,15 +911,13 @@ public abstract class LazySodium implements
     public String cryptoBoxOpenEasy(String cipherText, byte[] nonce, KeyPair keyPair) throws SodiumException {
         byte[] cipher = messageEncoder.decode(cipherText);
         byte[] message = new byte[cipher.length - Box.MACBYTES];
-        boolean res =
-                cryptoBoxOpenEasy(
-                        message,
-                        cipher,
-                        cipher.length,
-                        nonce,
-                        keyPair.getPublicKey().getAsBytes(),
-                        keyPair.getSecretKey().getAsBytes()
-                );
+        boolean res = cryptoBoxOpenEasy(
+                message,
+                cipher,
+                cipher.length,
+                nonce,
+                keyPair.getPublicKey().getAsBytes(),
+                keyPair.getSecretKey().getAsBytes());
 
         if (!res) {
             throw new SodiumException("Could not decrypt your message.");
@@ -994,7 +993,8 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public DetachedEncrypt cryptoBoxDetachedAfterNm(String message, byte[] nonce, String sharedSecretKey) throws SodiumException {
+    public DetachedEncrypt cryptoBoxDetachedAfterNm(String message, byte[] nonce, String sharedSecretKey)
+            throws SodiumException {
         if (!Box.Checker.checkNonce(nonce.length)) {
             throw new SodiumException("Incorrect nonce length.");
         }
@@ -1009,18 +1009,17 @@ public abstract class LazySodium implements
         byte[] cipher = new byte[messageBytes.length];
         byte[] mac = new byte[Box.MACBYTES];
 
-
         boolean res = cryptoBoxDetachedAfterNm(cipher, mac, messageBytes, messageBytes.length, nonce, sharedKey);
         if (!res) {
             throw new SodiumException("Could not fully complete shared secret key detached encryption.");
         }
 
-
         return new DetachedEncrypt(cipher, mac);
     }
 
     @Override
-    public DetachedDecrypt cryptoBoxOpenDetachedAfterNm(DetachedEncrypt detachedEncrypt, byte[] nonce, String sharedSecretKey) throws SodiumException {
+    public DetachedDecrypt cryptoBoxOpenDetachedAfterNm(DetachedEncrypt detachedEncrypt, byte[] nonce,
+            String sharedSecretKey) throws SodiumException {
         if (!Box.Checker.checkNonce(nonce.length)) {
             throw new SodiumException("Incorrect nonce length.");
         }
@@ -1099,7 +1098,6 @@ public abstract class LazySodium implements
         return successful(getSodium().crypto_sign_keypair(publicKey, secretKey));
     }
 
-
     @Override
     public boolean cryptoSignSeedKeypair(byte[] publicKey, byte[] secretKey, byte[] seed) {
         return successful(getSodium().crypto_sign_seed_keypair(publicKey, secretKey, seed));
@@ -1110,7 +1108,8 @@ public abstract class LazySodium implements
         if (messageLen < 0 || messageLen > message.length) {
             throw new IllegalArgumentException("messageLen out of bounds: " + messageLen);
         }
-        return successful(getSodium().crypto_sign(signedMessage, (new PointerByReference(Pointer.NULL)).getPointer(), message, messageLen, secretKey));
+        return successful(getSodium().crypto_sign(signedMessage, (new PointerByReference(Pointer.NULL)).getPointer(),
+                message, messageLen, secretKey));
     }
 
     @Override
@@ -1118,7 +1117,8 @@ public abstract class LazySodium implements
         if (signedMessageLen < 0 || signedMessageLen > signedMessage.length) {
             throw new IllegalArgumentException("signedMessageLen out of bounds: " + signedMessageLen);
         }
-        return successful(getSodium().crypto_sign_open(message, (new PointerByReference(Pointer.NULL)).getPointer(), signedMessage, signedMessageLen, publicKey));
+        return successful(getSodium().crypto_sign_open(message, (new PointerByReference(Pointer.NULL)).getPointer(),
+                signedMessage, signedMessageLen, publicKey));
     }
 
     @Override
@@ -1126,7 +1126,8 @@ public abstract class LazySodium implements
         if (messageLen < 0 || messageLen > message.length) {
             throw new IllegalArgumentException("messageLen out of bounds: " + messageLen);
         }
-        return successful(getSodium().crypto_sign_detached(signature, (new PointerByReference(Pointer.NULL)).getPointer(), message, messageLen, secretKey));
+        return successful(getSodium().crypto_sign_detached(signature,
+                (new PointerByReference(Pointer.NULL)).getPointer(), message, messageLen, secretKey));
     }
 
     @Override
@@ -1219,8 +1220,7 @@ public abstract class LazySodium implements
                 messageBytes,
                 signedMessageBytes,
                 signedMessageBytes.length,
-                publicKeyBytes
-        );
+                publicKeyBytes);
 
         if (!res) {
             return null;
@@ -1269,7 +1269,6 @@ public abstract class LazySodium implements
         return new KeyPair(Key.fromBytes(curvePkBytes), Key.fromBytes(curveSkBytes));
     }
 
-
     //// -------------------------------------------|
     //// SECRET SCREAM
     //// -------------------------------------------|
@@ -1285,7 +1284,8 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoSecretStreamPush(SecretStream.State state, byte[] cipher, long[] cipherAddr, byte[] message, long messageLen, byte tag) {
+    public boolean cryptoSecretStreamPush(SecretStream.State state, byte[] cipher, long[] cipherAddr, byte[] message,
+            long messageLen, byte tag) {
         if (messageLen < 0 || messageLen > message.length) {
             throw new IllegalArgumentException("messageLen out of bounds: " + messageLen);
         }
@@ -1297,16 +1297,15 @@ public abstract class LazySodium implements
                 messageLen,
                 new byte[0],
                 0L,
-                tag
-        ));
+                tag));
     }
 
     @Override
     public boolean cryptoSecretStreamPush(SecretStream.State state,
-                                          byte[] cipher,
-                                          byte[] message,
-                                          long messageLen,
-                                          byte tag) {
+            byte[] cipher,
+            byte[] message,
+            long messageLen,
+            byte tag) {
         if (messageLen < 0 || messageLen > message.length) {
             throw new IllegalArgumentException("messageLen out of bounds: " + messageLen);
         }
@@ -1318,19 +1317,18 @@ public abstract class LazySodium implements
                 messageLen,
                 new byte[0],
                 0L,
-                tag
-        ));
+                tag));
     }
 
     @Override
     public boolean cryptoSecretStreamPush(SecretStream.State state,
-                                          byte[] cipher,
-                                          long[] cipherAddr,
-                                          byte[] message,
-                                          long messageLen,
-                                          byte[] additionalData,
-                                          long additionalDataLen,
-                                          byte tag) {
+            byte[] cipher,
+            long[] cipherAddr,
+            byte[] message,
+            long messageLen,
+            byte[] additionalData,
+            long additionalDataLen,
+            byte tag) {
         if (messageLen < 0 || messageLen > message.length) {
             throw new IllegalArgumentException("messageLen out of bounds: " + messageLen);
         }
@@ -1345,8 +1343,7 @@ public abstract class LazySodium implements
                 messageLen,
                 additionalData,
                 additionalDataLen,
-                tag
-        ));
+                tag));
     }
 
     @Override
@@ -1356,13 +1353,13 @@ public abstract class LazySodium implements
 
     @Override
     public boolean cryptoSecretStreamPull(SecretStream.State state,
-                                          byte[] message,
-                                          long[] messageAddress,
-                                          byte[] tag,
-                                          byte[] cipher,
-                                          long cipherLen,
-                                          byte[] additionalData,
-                                          long additionalDataLen) {
+            byte[] message,
+            long[] messageAddress,
+            byte[] tag,
+            byte[] cipher,
+            long cipherLen,
+            byte[] additionalData,
+            long additionalDataLen) {
         if (cipherLen < 0 || cipherLen > cipher.length) {
             throw new IllegalArgumentException("cipherLen out of bounds: " + cipherLen);
         }
@@ -1370,12 +1367,12 @@ public abstract class LazySodium implements
             throw new IllegalArgumentException("additionalDataLen out of bounds: " + additionalDataLen);
         }
         return successful(getSodium().crypto_secretstream_xchacha20poly1305_pull(
-                state, message, messageAddress, tag, cipher, cipherLen, additionalData, additionalDataLen
-        ));
+                state, message, messageAddress, tag, cipher, cipherLen, additionalData, additionalDataLen));
     }
 
     @Override
-    public boolean cryptoSecretStreamPull(SecretStream.State state, byte[] message, byte[] tag, byte[] cipher, long cipherLen) {
+    public boolean cryptoSecretStreamPull(SecretStream.State state, byte[] message, byte[] tag, byte[] cipher,
+            long cipherLen) {
         if (cipherLen < 0 || cipherLen > cipher.length) {
             throw new IllegalArgumentException("cipherLen out of bounds: " + cipherLen);
         }
@@ -1387,8 +1384,7 @@ public abstract class LazySodium implements
                 cipher,
                 cipherLen,
                 new byte[0],
-                0L
-        ));
+                0L));
     }
 
     @Override
@@ -1420,8 +1416,7 @@ public abstract class LazySodium implements
                 messageBytes.length,
                 new byte[0],
                 0L,
-                tag
-        );
+                tag);
 
         if (res != 0) {
             throw new SodiumException("Error when encrypting a message using secret stream.");
@@ -1459,8 +1454,7 @@ public abstract class LazySodium implements
                 cipherBytes,
                 cipherBytes.length,
                 new byte[0],
-                0L
-        );
+                0L);
 
         if (res != 0) {
             throw new SodiumException("Error when decrypting a message using secret stream.");
@@ -1473,7 +1467,6 @@ public abstract class LazySodium implements
     public void cryptoSecretStreamRekey(SecretStream.State state) {
         getSodium().crypto_secretstream_xchacha20poly1305_rekey(state);
     }
-
 
     //// -------------------------------------------|
     //// STREAM
@@ -1501,7 +1494,8 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoStreamChacha20XorIc(byte[] cipher, byte[] message, long messageLen, byte[] nonce, long ic, byte[] key) {
+    public boolean cryptoStreamChacha20XorIc(byte[] cipher, byte[] message, long messageLen, byte[] nonce, long ic,
+            byte[] key) {
         if (messageLen < 0 || messageLen > message.length) {
             throw new IllegalArgumentException("messageLen out of bounds: " + messageLen);
         }
@@ -1524,7 +1518,8 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoStreamChaCha20IetfXor(byte[] cipher, byte[] message, long messageLen, byte[] nonce, byte[] key) {
+    public boolean cryptoStreamChaCha20IetfXor(byte[] cipher, byte[] message, long messageLen, byte[] nonce,
+            byte[] key) {
         if (messageLen < 0 || messageLen > message.length) {
             throw new IllegalArgumentException("messageLen out of bounds: " + messageLen);
         }
@@ -1532,7 +1527,8 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoStreamChacha20IetfXorIc(byte[] cipher, byte[] message, long messageLen, byte[] nonce, long ic, byte[] key) {
+    public boolean cryptoStreamChacha20IetfXorIc(byte[] cipher, byte[] message, long messageLen, byte[] nonce, long ic,
+            byte[] key) {
         if (messageLen < 0 || messageLen > message.length) {
             throw new IllegalArgumentException("messageLen out of bounds: " + messageLen);
         }
@@ -1563,13 +1559,13 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoStreamSalsa20XorIc(byte[] cipher, byte[] message, long messageLen, byte[] nonce, long ic, byte[] key) {
+    public boolean cryptoStreamSalsa20XorIc(byte[] cipher, byte[] message, long messageLen, byte[] nonce, long ic,
+            byte[] key) {
         if (messageLen < 0 || messageLen > message.length) {
             throw new IllegalArgumentException("messageLen out of bounds: " + messageLen);
         }
         return successful(getSodium().crypto_stream_salsa20_xor_ic(cipher, message, messageLen, nonce, ic, key));
     }
-
 
     @Override
     public void cryptoStreamXSalsa20Keygen(byte[] key) {
@@ -1615,7 +1611,6 @@ public abstract class LazySodium implements
         }
     }
 
-
     @Override
     public byte[] cryptoStream(byte[] nonce, Key key, Stream.Method method) {
         byte[] c = new byte[20];
@@ -1643,7 +1638,6 @@ public abstract class LazySodium implements
         return str(cryptoStreamDefaultXor(messageEncoder.decode(cipher), nonce, key, method));
     }
 
-
     @Override
     public String cryptoStreamXorIc(String message, byte[] nonce, long ic, Key key, Stream.Method method) {
         byte[] mBytes = bytes(message);
@@ -1655,7 +1649,6 @@ public abstract class LazySodium implements
         byte[] cipherBytes = messageEncoder.decode(cipher);
         return str(cryptoStreamDefaultXorIc(cipherBytes, nonce, ic, key, method));
     }
-
 
     private byte[] cryptoStreamDefaultXor(byte[] messageBytes, byte[] nonce, Key key, Stream.Method method) {
         int mLen = messageBytes.length;
@@ -1672,7 +1665,8 @@ public abstract class LazySodium implements
         return cipher;
     }
 
-    protected byte[] cryptoStreamDefaultXorIc(byte[] messageBytes, byte[] nonce, long ic, Key key, Stream.Method method) {
+    protected byte[] cryptoStreamDefaultXorIc(byte[] messageBytes, byte[] nonce, long ic, Key key,
+            Stream.Method method) {
         int mLen = messageBytes.length;
         byte[] cipher = new byte[mLen];
         if (method.equals(Stream.Method.CHACHA20)) {
@@ -1688,7 +1682,6 @@ public abstract class LazySodium implements
         }
         return cipher;
     }
-
 
     //// -------------------------------------------|
     //// CRYPTO AUTH
@@ -1714,7 +1707,6 @@ public abstract class LazySodium implements
     public void cryptoAuthKeygen(byte[] k) {
         getSodium().crypto_auth_keygen(k);
     }
-
 
     @Override
     public Key cryptoAuthKeygen() {
@@ -1744,7 +1736,6 @@ public abstract class LazySodium implements
         byte[] keyBytes = key.getAsBytes();
         return cryptoAuthVerify(tagToBytes, messageBytes, messageBytes.length, keyBytes);
     }
-
 
     @Override
     public void cryptoAuthHMACSha256Keygen(byte[] key) {
@@ -1787,7 +1778,6 @@ public abstract class LazySodium implements
     public boolean cryptoAuthHMACSha256Final(Auth.StateHMAC256 state, byte[] out) {
         return successful(getSodium().crypto_auth_hmacsha256_final(state, out));
     }
-
 
     @Override
     public void cryptoAuthHMACSha512Keygen(byte[] key) {
@@ -1872,7 +1862,6 @@ public abstract class LazySodium implements
     public boolean cryptoAuthHMACSha512256Final(Auth.StateHMAC512256 state, byte[] out) {
         return successful(getSodium().crypto_auth_hmacsha512256_final(state, out));
     }
-
 
     @Override
     public Key cryptoAuthHMACShaKeygen(Auth.Type type) {
@@ -2030,7 +2019,6 @@ public abstract class LazySodium implements
         return Key.fromBytes(key);
     }
 
-
     //// -------------------------------------------|
     //// GENERIC HASH
     //// -------------------------------------------|
@@ -2156,7 +2144,6 @@ public abstract class LazySodium implements
         return messageEncoder.encode(hash);
     }
 
-
     //// -------------------------------------------|
     //// AEAD
     //// -------------------------------------------|
@@ -2167,7 +2154,8 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoAeadChaCha20Poly1305Encrypt(byte[] c, long[] cLen, byte[] m, long mLen, byte[] ad, long adLen, byte[] nSec, byte[] nPub, byte[] k) {
+    public boolean cryptoAeadChaCha20Poly1305Encrypt(byte[] c, long[] cLen, byte[] m, long mLen, byte[] ad, long adLen,
+            byte[] nSec, byte[] nPub, byte[] k) {
         if (mLen < 0 || mLen > m.length) {
             throw new IllegalArgumentException("mLen out of bounds: " + mLen);
         }
@@ -2178,18 +2166,23 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoAeadChaCha20Poly1305Decrypt(byte[] m, long[] mLen, byte[] nSec, byte[] c, long cLen, byte[] ad, long adLen, byte[] nPub, byte[] k) {
+    public boolean cryptoAeadChaCha20Poly1305Decrypt(byte[] m, long[] mLen, byte[] nSec, byte[] c, long cLen, byte[] ad,
+            long adLen, byte[] nPub, byte[] k) {
         return successful(getSodium().crypto_aead_chacha20poly1305_decrypt(m, mLen, nSec, c, cLen, ad, adLen, nPub, k));
     }
 
     @Override
-    public boolean cryptoAeadChaCha20Poly1305EncryptDetached(byte[] c, byte[] mac, long[] macLenAddress, byte[] m, long mLen, byte[] ad, long adLen, byte[] nSec, byte[] nPub, byte[] k) {
-        return successful(getSodium().crypto_aead_chacha20poly1305_encrypt_detached(c, mac, macLenAddress, m, mLen, ad, adLen, nSec, nPub, k));
+    public boolean cryptoAeadChaCha20Poly1305EncryptDetached(byte[] c, byte[] mac, long[] macLenAddress, byte[] m,
+            long mLen, byte[] ad, long adLen, byte[] nSec, byte[] nPub, byte[] k) {
+        return successful(getSodium().crypto_aead_chacha20poly1305_encrypt_detached(c, mac, macLenAddress, m, mLen, ad,
+                adLen, nSec, nPub, k));
     }
 
     @Override
-    public boolean cryptoAeadChaCha20Poly1305DecryptDetached(byte[] m, byte[] nSec, byte[] c, long cLen, byte[] mac, byte[] ad, long adLen, byte[] nPub, byte[] k) {
-        return successful(getSodium().crypto_aead_chacha20poly1305_decrypt_detached(m, nSec, c, cLen, mac, ad, adLen, nPub, k));
+    public boolean cryptoAeadChaCha20Poly1305DecryptDetached(byte[] m, byte[] nSec, byte[] c, long cLen, byte[] mac,
+            byte[] ad, long adLen, byte[] nPub, byte[] k) {
+        return successful(
+                getSodium().crypto_aead_chacha20poly1305_decrypt_detached(m, nSec, c, cLen, mac, ad, adLen, nPub, k));
     }
 
     @Override
@@ -2198,23 +2191,31 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoAeadChaCha20Poly1305IetfEncrypt(byte[] c, long[] cLen, byte[] m, long mLen, byte[] ad, long adLen, byte[] nSec, byte[] nPub, byte[] k) {
-        return successful(getSodium().crypto_aead_chacha20poly1305_ietf_encrypt(c, cLen, m, mLen, ad, adLen, nSec, nPub, k));
+    public boolean cryptoAeadChaCha20Poly1305IetfEncrypt(byte[] c, long[] cLen, byte[] m, long mLen, byte[] ad,
+            long adLen, byte[] nSec, byte[] nPub, byte[] k) {
+        return successful(
+                getSodium().crypto_aead_chacha20poly1305_ietf_encrypt(c, cLen, m, mLen, ad, adLen, nSec, nPub, k));
     }
 
     @Override
-    public boolean cryptoAeadChaCha20Poly1305IetfDecrypt(byte[] m, long[] mLen, byte[] nSec, byte[] c, long cLen, byte[] ad, long adLen, byte[] nPub, byte[] k) {
-        return successful(getSodium().crypto_aead_chacha20poly1305_ietf_decrypt(m, mLen, nSec, c, cLen, ad, adLen, nPub, k));
+    public boolean cryptoAeadChaCha20Poly1305IetfDecrypt(byte[] m, long[] mLen, byte[] nSec, byte[] c, long cLen,
+            byte[] ad, long adLen, byte[] nPub, byte[] k) {
+        return successful(
+                getSodium().crypto_aead_chacha20poly1305_ietf_decrypt(m, mLen, nSec, c, cLen, ad, adLen, nPub, k));
     }
 
     @Override
-    public boolean cryptoAeadChaCha20Poly1305IetfEncryptDetached(byte[] c, byte[] mac, long[] macLenAddress, byte[] m, long mLen, byte[] ad, long adLen, byte[] nSec, byte[] nPub, byte[] k) {
-        return successful(getSodium().crypto_aead_chacha20poly1305_ietf_encrypt_detached(c, mac, macLenAddress, m, mLen, ad, adLen, nSec, nPub, k));
+    public boolean cryptoAeadChaCha20Poly1305IetfEncryptDetached(byte[] c, byte[] mac, long[] macLenAddress, byte[] m,
+            long mLen, byte[] ad, long adLen, byte[] nSec, byte[] nPub, byte[] k) {
+        return successful(getSodium().crypto_aead_chacha20poly1305_ietf_encrypt_detached(c, mac, macLenAddress, m, mLen,
+                ad, adLen, nSec, nPub, k));
     }
 
     @Override
-    public boolean cryptoAeadChaCha20Poly1305IetfDecryptDetached(byte[] m, byte[] nSec, byte[] c, long cLen, byte[] mac, byte[] ad, long adLen, byte[] nPub, byte[] k) {
-        return successful(getSodium().crypto_aead_chacha20poly1305_ietf_decrypt_detached(m, nSec, c, cLen, mac, ad, adLen, nPub, k));
+    public boolean cryptoAeadChaCha20Poly1305IetfDecryptDetached(byte[] m, byte[] nSec, byte[] c, long cLen, byte[] mac,
+            byte[] ad, long adLen, byte[] nPub, byte[] k) {
+        return successful(getSodium().crypto_aead_chacha20poly1305_ietf_decrypt_detached(m, nSec, c, cLen, mac, ad,
+                adLen, nPub, k));
     }
 
     @Override
@@ -2223,23 +2224,31 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoAeadXChaCha20Poly1305IetfEncrypt(byte[] c, long[] cLen, byte[] m, long mLen, byte[] ad, long adLen, byte[] nSec, byte[] nPub, byte[] k) {
-        return successful(getSodium().crypto_aead_xchacha20poly1305_ietf_encrypt(c, cLen, m, mLen, ad, adLen, nSec, nPub, k));
+    public boolean cryptoAeadXChaCha20Poly1305IetfEncrypt(byte[] c, long[] cLen, byte[] m, long mLen, byte[] ad,
+            long adLen, byte[] nSec, byte[] nPub, byte[] k) {
+        return successful(
+                getSodium().crypto_aead_xchacha20poly1305_ietf_encrypt(c, cLen, m, mLen, ad, adLen, nSec, nPub, k));
     }
 
     @Override
-    public boolean cryptoAeadXChaCha20Poly1305IetfDecrypt(byte[] m, long[] mLen, byte[] nSec, byte[] c, long cLen, byte[] ad, long adLen, byte[] nPub, byte[] k) {
-        return successful(getSodium().crypto_aead_xchacha20poly1305_ietf_decrypt(m, mLen, nSec, c, cLen, ad, adLen, nPub, k));
+    public boolean cryptoAeadXChaCha20Poly1305IetfDecrypt(byte[] m, long[] mLen, byte[] nSec, byte[] c, long cLen,
+            byte[] ad, long adLen, byte[] nPub, byte[] k) {
+        return successful(
+                getSodium().crypto_aead_xchacha20poly1305_ietf_decrypt(m, mLen, nSec, c, cLen, ad, adLen, nPub, k));
     }
 
     @Override
-    public boolean cryptoAeadXChaCha20Poly1305IetfEncryptDetached(byte[] c, byte[] mac, long[] macLenAddress, byte[] m, long mLen, byte[] ad, long adLen, byte[] nSec, byte[] nPub, byte[] k) {
-        return successful(getSodium().crypto_aead_xchacha20poly1305_ietf_encrypt_detached(c, mac, macLenAddress, m, mLen, ad, adLen, nSec, nPub, k));
+    public boolean cryptoAeadXChaCha20Poly1305IetfEncryptDetached(byte[] c, byte[] mac, long[] macLenAddress, byte[] m,
+            long mLen, byte[] ad, long adLen, byte[] nSec, byte[] nPub, byte[] k) {
+        return successful(getSodium().crypto_aead_xchacha20poly1305_ietf_encrypt_detached(c, mac, macLenAddress, m,
+                mLen, ad, adLen, nSec, nPub, k));
     }
 
     @Override
-    public boolean cryptoAeadXChaCha20Poly1305IetfDecryptDetached(byte[] m, byte[] nSec, byte[] c, long cLen, byte[] mac, byte[] ad, long adLen, byte[] nPub, byte[] k) {
-        return successful(getSodium().crypto_aead_xchacha20poly1305_ietf_decrypt_detached(m, nSec, c, cLen, mac, ad, adLen, nPub, k));
+    public boolean cryptoAeadXChaCha20Poly1305IetfDecryptDetached(byte[] m, byte[] nSec, byte[] c, long cLen,
+            byte[] mac, byte[] ad, long adLen, byte[] nPub, byte[] k) {
+        return successful(getSodium().crypto_aead_xchacha20poly1305_ietf_decrypt_detached(m, nSec, c, cLen, mac, ad,
+                adLen, nPub, k));
     }
 
     @Override
@@ -2248,30 +2257,37 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public boolean cryptoAeadAES256GCMEncrypt(byte[] cipher, long[] cipherLen, byte[] message, long messageLen, byte[] additionalData, long additionalDataLen, byte[] nSec, byte[] nPub, byte[] key) {
-        return successful(getSodium().crypto_aead_aes256gcm_encrypt(cipher, cipherLen, message, messageLen, additionalData, additionalDataLen, nSec, nPub, key));
+    public boolean cryptoAeadAES256GCMEncrypt(byte[] cipher, long[] cipherLen, byte[] message, long messageLen,
+            byte[] additionalData, long additionalDataLen, byte[] nSec, byte[] nPub, byte[] key) {
+        return successful(getSodium().crypto_aead_aes256gcm_encrypt(cipher, cipherLen, message, messageLen,
+                additionalData, additionalDataLen, nSec, nPub, key));
     }
 
     @Override
-    public boolean cryptoAeadAES256GCMDecrypt(byte[] message, long[] messageLen, byte[] nSec, byte[] cipher, long cipherLen, byte[] additionalData, long additionalDataLen, byte[] nPub, byte[] key) {
-        return successful(getSodium().crypto_aead_aes256gcm_decrypt(message, messageLen, nSec, cipher, cipherLen, additionalData, additionalDataLen, nPub, key));
+    public boolean cryptoAeadAES256GCMDecrypt(byte[] message, long[] messageLen, byte[] nSec, byte[] cipher,
+            long cipherLen, byte[] additionalData, long additionalDataLen, byte[] nPub, byte[] key) {
+        return successful(getSodium().crypto_aead_aes256gcm_decrypt(message, messageLen, nSec, cipher, cipherLen,
+                additionalData, additionalDataLen, nPub, key));
     }
 
     @Override
-    public boolean cryptoAeadAES256GCMEncryptDetached(byte[] cipher, byte[] mac, long[] macLenAddress, byte[] message, long messageLen, byte[] additionalData, long additionalDataLen, byte[] nSec, byte[] nPub, byte[] key) {
-        return successful(getSodium().crypto_aead_aes256gcm_encrypt_detached(cipher, mac, macLenAddress, message, messageLen, additionalData, additionalDataLen, nSec, nPub, key));
+    public boolean cryptoAeadAES256GCMEncryptDetached(byte[] cipher, byte[] mac, long[] macLenAddress, byte[] message,
+            long messageLen, byte[] additionalData, long additionalDataLen, byte[] nSec, byte[] nPub, byte[] key) {
+        return successful(getSodium().crypto_aead_aes256gcm_encrypt_detached(cipher, mac, macLenAddress, message,
+                messageLen, additionalData, additionalDataLen, nSec, nPub, key));
     }
 
     @Override
-    public boolean cryptoAeadAES256GCMDecryptDetached(byte[] message, byte[] nSec, byte[] cipher, long cipherLen, byte[] mac, byte[] additionalData, long additionalDataLen, byte[] nPub, byte[] key) {
-        return successful(getSodium().crypto_aead_aes256gcm_decrypt_detached(message, nSec, cipher, cipherLen, mac, additionalData, additionalDataLen, nPub, key));
+    public boolean cryptoAeadAES256GCMDecryptDetached(byte[] message, byte[] nSec, byte[] cipher, long cipherLen,
+            byte[] mac, byte[] additionalData, long additionalDataLen, byte[] nPub, byte[] key) {
+        return successful(getSodium().crypto_aead_aes256gcm_decrypt_detached(message, nSec, cipher, cipherLen, mac,
+                additionalData, additionalDataLen, nPub, key));
     }
 
     @Override
     public boolean cryptoAeadAES256GCMIsAvailable() {
         return getSodium().crypto_aead_aes256gcm_is_available() == 1;
     }
-
 
     // -- lazy
 
@@ -2321,8 +2337,7 @@ public abstract class LazySodium implements
                     additionalBytesLen,
                     nSec,
                     nPub,
-                    keyBytes
-            );
+                    keyBytes);
             return messageEncoder.encode(cipherBytes);
         } else if (method.equals(AEAD.Method.CHACHA20_POLY1305_IETF)) {
             byte[] cipherBytes = new byte[messageBytes.length + AEAD.CHACHA20POLY1305_IETF_ABYTES];
@@ -2335,8 +2350,7 @@ public abstract class LazySodium implements
                     additionalBytesLen,
                     nSec,
                     nPub,
-                    keyBytes
-            );
+                    keyBytes);
             return messageEncoder.encode(cipherBytes);
         } else if (method.equals(AEAD.Method.XCHACHA20_POLY1305_IETF)) {
             byte[] cipherBytes3 = new byte[messageBytes.length + AEAD.XCHACHA20POLY1305_IETF_ABYTES];
@@ -2349,8 +2363,7 @@ public abstract class LazySodium implements
                     additionalBytesLen,
                     nSec,
                     nPub,
-                    keyBytes
-            );
+                    keyBytes);
             return messageEncoder.encode(cipherBytes3);
         } else {
             byte[] cipherBytes = new byte[messageBytes.length + AEAD.AES256GCM_ABYTES];
@@ -2363,20 +2376,20 @@ public abstract class LazySodium implements
                     additionalBytesLen,
                     nSec,
                     nPub,
-                    keyBytes
-            );
+                    keyBytes);
             return messageEncoder.encode(cipherBytes);
         }
     }
 
-
     @Override
-    public String decrypt(String cipher, String additionalData, byte[] nPub, Key k, AEAD.Method method) throws AEADBadTagException {
+    public String decrypt(String cipher, String additionalData, byte[] nPub, Key k, AEAD.Method method)
+            throws AEADBadTagException {
         return decrypt(cipher, additionalData, null, nPub, k, method);
     }
 
     @Override
-    public String decrypt(String cipher, String additionalData, byte[] nSec, byte[] nPub, Key k, AEAD.Method method) throws AEADBadTagException {
+    public String decrypt(String cipher, String additionalData, byte[] nSec, byte[] nPub, Key k, AEAD.Method method)
+            throws AEADBadTagException {
         byte[] cipherBytes = messageEncoder.decode(cipher);
         byte[] additionalDataBytes = additionalData == null ? new byte[0] : bytes(additionalData);
         long additionalBytesLen = additionalData == null ? 0L : additionalDataBytes.length;
@@ -2393,8 +2406,7 @@ public abstract class LazySodium implements
                     additionalDataBytes,
                     additionalBytesLen,
                     nPub,
-                    keyBytes
-            )) {
+                    keyBytes)) {
                 throw new AEADBadTagException();
             }
             return str(messageBytes);
@@ -2409,8 +2421,7 @@ public abstract class LazySodium implements
                     additionalDataBytes,
                     additionalBytesLen,
                     nPub,
-                    keyBytes
-            )) {
+                    keyBytes)) {
                 throw new AEADBadTagException();
             }
             return str(messageBytes);
@@ -2425,8 +2436,7 @@ public abstract class LazySodium implements
                     additionalDataBytes,
                     additionalBytesLen,
                     nPub,
-                    keyBytes
-            )) {
+                    keyBytes)) {
                 throw new AEADBadTagException();
             }
             return str(messageBytes);
@@ -2441,8 +2451,7 @@ public abstract class LazySodium implements
                     additionalDataBytes,
                     additionalBytesLen,
                     nPub,
-                    keyBytes
-            )) {
+                    keyBytes)) {
                 throw new AEADBadTagException();
             }
             return str(messageBytes);
@@ -2450,7 +2459,8 @@ public abstract class LazySodium implements
     }
 
     @Override
-    public DetachedEncrypt encryptDetached(String m, String additionalData, byte[] nSec, byte[] nPub, Key k, AEAD.Method method) {
+    public DetachedEncrypt encryptDetached(String m, String additionalData, byte[] nSec, byte[] nPub, Key k,
+            AEAD.Method method) {
         byte[] messageBytes = bytes(m);
         byte[] additionalDataBytes = additionalData == null ? new byte[0] : bytes(additionalData);
         long additionalBytesLen = additionalData == null ? 0L : additionalDataBytes.length;
@@ -2470,8 +2480,7 @@ public abstract class LazySodium implements
                     additionalBytesLen,
                     nSec,
                     nPub,
-                    keyBytes
-            );
+                    keyBytes);
             return new DetachedEncrypt(cipherBytes, macBytes);
         } else if (method.equals(AEAD.Method.CHACHA20_POLY1305_IETF)) {
             byte[] macBytes = new byte[AEAD.CHACHA20POLY1305_IETF_ABYTES];
@@ -2485,8 +2494,7 @@ public abstract class LazySodium implements
                     additionalBytesLen,
                     nSec,
                     nPub,
-                    keyBytes
-            );
+                    keyBytes);
             return new DetachedEncrypt(cipherBytes, macBytes);
         } else if (method.equals(AEAD.Method.XCHACHA20_POLY1305_IETF)) {
             byte[] macBytes = new byte[AEAD.XCHACHA20POLY1305_IETF_ABYTES];
@@ -2500,8 +2508,7 @@ public abstract class LazySodium implements
                     additionalBytesLen,
                     nSec,
                     nPub,
-                    keyBytes
-            );
+                    keyBytes);
             return new DetachedEncrypt(cipherBytes, macBytes);
         } else {
             byte[] macBytes = new byte[AEAD.AES256GCM_ABYTES];
@@ -2515,14 +2522,14 @@ public abstract class LazySodium implements
                     additionalBytesLen,
                     nSec,
                     nPub,
-                    keyBytes
-            );
+                    keyBytes);
             return new DetachedEncrypt(cipherBytes, macBytes);
         }
     }
 
     @Override
-    public DetachedDecrypt decryptDetached(DetachedEncrypt detachedEncrypt, String additionalData, byte[] nSec, byte[] nPub, Key k, AEAD.Method method) throws AEADBadTagException {
+    public DetachedDecrypt decryptDetached(DetachedEncrypt detachedEncrypt, String additionalData, byte[] nSec,
+            byte[] nPub, Key k, AEAD.Method method) throws AEADBadTagException {
         byte[] cipherBytes = detachedEncrypt.getCipher();
         byte[] additionalDataBytes = additionalData == null ? new byte[0] : bytes(additionalData);
         long additionalBytesLen = additionalData == null ? 0L : additionalDataBytes.length;
@@ -2540,8 +2547,7 @@ public abstract class LazySodium implements
                     additionalDataBytes,
                     additionalBytesLen,
                     nPub,
-                    keyBytes
-            )) {
+                    keyBytes)) {
                 throw new AEADBadTagException();
             }
             return new DetachedDecrypt(messageBytes, macBytes, charset);
@@ -2555,8 +2561,7 @@ public abstract class LazySodium implements
                     additionalDataBytes,
                     additionalBytesLen,
                     nPub,
-                    keyBytes
-            )) {
+                    keyBytes)) {
                 throw new AEADBadTagException();
             }
             return new DetachedDecrypt(messageBytes, macBytes, charset);
@@ -2570,8 +2575,7 @@ public abstract class LazySodium implements
                     additionalDataBytes,
                     additionalBytesLen,
                     nPub,
-                    keyBytes
-            )) {
+                    keyBytes)) {
                 throw new AEADBadTagException();
             }
             return new DetachedDecrypt(messageBytes, macBytes, charset);
@@ -2585,14 +2589,626 @@ public abstract class LazySodium implements
                     additionalDataBytes,
                     additionalBytesLen,
                     nPub,
-                    keyBytes
-            )) {
+                    keyBytes)) {
                 throw new AEADBadTagException();
             }
             return new DetachedDecrypt(messageBytes, macBytes, charset);
         }
     }
 
+    //// -------------------------------------------|
+    //// Ed25519
+    //// -------------------------------------------|
+
+    @Override
+    public boolean cryptoCoreEd25519IsValidPoint(byte[] point) {
+        return point.length == Ed25519.ED25519_BYTES
+                && getSodium().crypto_core_ed25519_is_valid_point(point) == 1;
+    }
+
+    @Override
+    public void cryptoCoreEd25519Random(byte[] point) {
+        Ed25519.Checker.ensurePointFits(point);
+
+        getSodium().crypto_core_ed25519_random(point);
+    }
+
+    @Override
+    public boolean cryptoCoreEd25519FromUniform(byte[] point, byte[] hash) {
+        Ed25519.Checker.ensurePointFits(point);
+        Ed25519.Checker.checkHash(hash);
+
+        return successful(getSodium().crypto_core_ed25519_from_uniform(point, hash));
+    }
+
+    @Override
+    public boolean cryptoScalarMultEd25519Noclamp(byte[] resultingPoint, byte[] scalar, byte[] point) {
+        Ed25519.Checker.ensurePointFits(resultingPoint);
+        Ed25519.Checker.checkPoint(point);
+        Ed25519.Checker.checkScalar(scalar);
+
+        return successful(getSodium().crypto_scalarmult_ed25519_noclamp(resultingPoint, scalar, point));
+    }
+
+    @Override
+    public boolean cryptoScalarMultEd25519BaseNoclamp(byte[] publicKey, byte[] secretKey) {
+        Ed25519.Checker.ensurePointFits(publicKey);
+        Ed25519.Checker.ensureScalarFits(secretKey);
+        return successful(getSodium().crypto_scalarmult_ed25519_base_noclamp(publicKey, secretKey));
+    }
+
+    @Override
+    public boolean cryptoCoreEd25519Add(byte[] result, byte[] p, byte[] q) {
+        Ed25519.Checker.ensurePointFits(result);
+        Ed25519.Checker.checkPoint(p);
+        Ed25519.Checker.checkPoint(q);
+
+        return successful(getSodium().crypto_core_ed25519_add(result, p, q));
+    }
+
+    @Override
+    public boolean cryptoCoreEd25519Sub(byte[] result, byte[] p, byte[] q) {
+        Ed25519.Checker.ensurePointFits(result);
+        Ed25519.Checker.checkPoint(p);
+        Ed25519.Checker.checkPoint(q);
+
+        return successful(getSodium().crypto_core_ed25519_sub(result, p, q));
+    }
+
+    @Override
+    public void cryptoCoreEd25519ScalarRandom(byte[] scalar) {
+        Ed25519.Checker.ensureScalarFits(scalar);
+
+        getSodium().crypto_core_ed25519_scalar_random(scalar);
+    }
+
+    @Override
+    public void cryptoCoreEd25519ScalarReduce(byte[] result, byte[] scalar) {
+        Ed25519.Checker.ensureScalarFits(result);
+        Ed25519.Checker.checkNonReducedScalar(scalar);
+
+        getSodium().crypto_core_ed25519_scalar_reduce(result, scalar);
+    }
+
+    @Override
+    public boolean cryptoCoreEd25519ScalarInvert(byte[] result, byte[] scalar) {
+        Ed25519.Checker.ensureScalarFits(result);
+        Ed25519.Checker.checkScalar(scalar);
+
+        return successful(getSodium().crypto_core_ed25519_scalar_invert(result, scalar));
+    }
+
+    @Override
+    public void cryptoCoreEd25519ScalarNegate(byte[] result, byte[] scalar) {
+        Ed25519.Checker.ensureScalarFits(result);
+        Ed25519.Checker.checkScalar(scalar);
+
+        getSodium().crypto_core_ed25519_scalar_negate(result, scalar);
+    }
+
+    @Override
+    public void cryptoCoreEd25519ScalarComplement(byte[] result, byte[] scalar) {
+        Ed25519.Checker.ensureScalarFits(result);
+        Ed25519.Checker.checkScalar(scalar);
+
+        getSodium().crypto_core_ed25519_scalar_complement(result, scalar);
+    }
+
+    @Override
+    public void cryptoCoreEd25519ScalarAdd(byte[] result, byte[] x, byte[] y) {
+        Ed25519.Checker.ensureScalarFits(result);
+        Ed25519.Checker.checkScalar(x);
+        Ed25519.Checker.checkScalar(y);
+
+        getSodium().crypto_core_ed25519_scalar_add(result, x, y);
+    }
+
+    @Override
+    public void cryptoCoreEd25519ScalarSub(byte[] result, byte[] x, byte[] y) {
+        Ed25519.Checker.ensureScalarFits(result);
+        Ed25519.Checker.checkScalar(x);
+        Ed25519.Checker.checkScalar(y);
+
+        getSodium().crypto_core_ed25519_scalar_sub(result, x, y);
+    }
+
+    @Override
+    public void cryptoCoreEd25519ScalarMul(byte[] result, byte[] x, byte[] y) {
+        Ed25519.Checker.ensureScalarFits(result);
+        Ed25519.Checker.checkScalar(x);
+        Ed25519.Checker.checkScalar(y);
+
+        getSodium().crypto_core_ed25519_scalar_mul(result, x, y);
+    }
+
+    // -- lazy
+
+    @Override
+    public boolean cryptoCoreEd25519IsValidPoint(String point) {
+        if (point == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519IsValidPoint(messageEncoder.decode(point));
+    }
+
+    @Override
+    public Ed25519Point cryptoCoreEd25519Random() {
+        byte[] point = Ed25519.pointBuffer();
+        cryptoCoreEd25519Random(point);
+
+        return Ed25519Point.fromBytes(this, point);
+    }
+
+    @Override
+    public Ed25519Point cryptoCoreEd25519FromUniform(String hash) throws SodiumException {
+        if (hash == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519FromUniform(messageEncoder.decode(hash));
+    }
+
+    @Override
+    public Ed25519Point cryptoCoreEd25519FromUniform(byte[] hash) throws SodiumException {
+        byte[] point = Ed25519.pointBuffer();
+
+        if (!cryptoCoreEd25519FromUniform(point, hash)) {
+            throw new SodiumException("Failed to create a point from the hash.");
+        }
+
+        return Ed25519Point.fromBytes(this, point);
+    }
+
+    @Override
+    public Ed25519Point cryptoScalarMultEd25519Noclamp(BigInteger n, Ed25519Point point)
+            throws SodiumException {
+        if (n == null || point == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoScalarMultEd25519Noclamp(Ed25519.scalarToBytes(n), point);
+    }
+
+    @Override
+    public Ed25519Point cryptoScalarMultEd25519Noclamp(String nEnc, Ed25519Point point)
+            throws SodiumException {
+        if (nEnc == null || point == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoScalarMultEd25519Noclamp(messageEncoder.decode(nEnc), point);
+    }
+
+    @Override
+    public Ed25519Point cryptoScalarMultEd25519Noclamp(byte[] n, Ed25519Point point)
+            throws SodiumException {
+
+        byte[] result = Ed25519.pointBuffer();
+
+        if (!cryptoScalarMultEd25519Noclamp(result, n, point.toBytes())) {
+            throw new SodiumException(
+                    "Scalar multiplication failed. The resulting point was the identity element.");
+        }
+
+        return Ed25519Point.fromBytes(this, result);
+    }
+
+    @Override
+    public Ed25519Point cryptoScalarMultEd25519BaseNoclamp(BigInteger n) throws SodiumException {
+        if (n == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+        return cryptoScalarMultEd25519BaseNoclamp(Ed25519.scalarToBytes(n));
+    }
+
+    @Override
+    public Ed25519Point cryptoScalarMultEd25519BaseNoclamp(String nEnc)
+            throws SodiumException {
+        if (nEnc == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoScalarMultEd25519BaseNoclamp(messageEncoder.decode(nEnc));
+    }
+
+    @Override
+    public Ed25519Point cryptoScalarMultEd25519BaseNoclamp(byte[] n) throws SodiumException {
+        byte[] result = Ed25519.pointBuffer();
+
+        if (!cryptoScalarMultEd25519BaseNoclamp(result, n)) {
+            throw new SodiumException(
+                    "Scalar multiplication failed. n was 0.");
+        }
+
+        return Ed25519Point.fromBytes(this, result);
+    }
+
+    @Override
+    public Ed25519Point cryptoCoreEd25519Add(Ed25519Point p, Ed25519Point q) throws SodiumException {
+        if (p == null || q == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        byte[] result = Ed25519.pointBuffer();
+        if (!cryptoCoreEd25519Add(result, p.toBytes(), q.toBytes())) {
+            throw new SodiumException("Either q or p was not a valid point.");
+        }
+
+        return Ed25519Point.fromBytes(this, result);
+    }
+
+    @Override
+    public Ed25519Point cryptoCoreEd25519Sub(Ed25519Point p, Ed25519Point q) throws SodiumException {
+        if (p == null || q == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        byte[] result = Ed25519.pointBuffer();
+        if (!cryptoCoreEd25519Sub(result, p.toBytes(), q.toBytes())) {
+            throw new SodiumException("Either q or p was not a valid point.");
+        }
+
+        return Ed25519Point.fromBytes(this, result);
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarRandom() {
+        byte[] scalar = Ed25519.scalarBuffer();
+        cryptoCoreEd25519ScalarRandom(scalar);
+
+        return Ed25519.bytesToScalar(scalar);
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarReduce(BigInteger scalar) {
+        if (scalar == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarReduce(Ed25519.scalarToBytes(scalar, false));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarReduce(String scalarEnc) {
+        if (scalarEnc == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarReduce(messageEncoder.decode(scalarEnc));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarReduce(byte[] scalar) {
+        byte[] result = Ed25519.scalarBuffer();
+        cryptoCoreEd25519ScalarReduce(result, scalar);
+
+        return Ed25519.bytesToScalar(result);
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarInvert(BigInteger scalar) throws SodiumException {
+        if (scalar == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarInvert(Ed25519.scalarToBytes(scalar));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarInvert(String scalarEnc) throws SodiumException {
+        if (scalarEnc == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarInvert(messageEncoder.decode(scalarEnc));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarInvert(byte[] scalar) throws SodiumException {
+        byte[] result = Ed25519.scalarBuffer();
+
+        if (!cryptoCoreEd25519ScalarInvert(result, scalar)) {
+            throw new SodiumException("Scalar inversion failed. Did you pass 0?");
+        }
+
+        return Ed25519.bytesToScalar(result);
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarNegate(BigInteger scalar) {
+        if (scalar == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarNegate(Ed25519.scalarToBytes(scalar));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarNegate(String scalarEnc) {
+        if (scalarEnc == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarNegate(messageEncoder.decode(scalarEnc));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarNegate(byte[] scalar) {
+        byte[] result = Ed25519.scalarBuffer();
+        cryptoCoreEd25519ScalarNegate(result, scalar);
+
+        return Ed25519.bytesToScalar(result);
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarComplement(BigInteger scalar) {
+        if (scalar == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarComplement(Ed25519.scalarToBytes(scalar));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarComplement(String scalarEnc) {
+        if (scalarEnc == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarComplement(messageEncoder.decode(scalarEnc));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarComplement(byte[] scalar) {
+        byte[] result = Ed25519.scalarBuffer();
+        cryptoCoreEd25519ScalarComplement(result, scalar);
+
+        return Ed25519.bytesToScalar(result);
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarAdd(BigInteger x, BigInteger y) {
+        if (x == null || y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarAdd(
+                Ed25519.scalarToBytes(x), Ed25519.scalarToBytes(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarAdd(BigInteger x, String y) {
+        if (x == null || y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarAdd(Ed25519.scalarToBytes(x), messageEncoder.decode(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarAdd(String x, BigInteger y) {
+        if (x == null || y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarAdd(messageEncoder.decode(x), Ed25519.scalarToBytes(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarAdd(String x, String y) {
+        if (x == null || y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarAdd(messageEncoder.decode(x), messageEncoder.decode(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarAdd(String x, byte[] y) {
+        if (x == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarAdd(messageEncoder.decode(x), y);
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarAdd(byte[] x, String y) {
+        if (y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarAdd(x, messageEncoder.decode(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarAdd(BigInteger x, byte[] y) {
+        if (x == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarAdd(Ed25519.scalarToBytes(x), y);
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarAdd(byte[] x, BigInteger y) {
+        if (y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarAdd(x, Ed25519.scalarToBytes(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarAdd(byte[] x, byte[] y) {
+        byte[] result = Ed25519.scalarBuffer();
+        cryptoCoreEd25519ScalarAdd(result, x, y);
+
+        return Ed25519.bytesToScalar(result);
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarSub(BigInteger x, BigInteger y) {
+        if (x == null || y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarSub(
+                Ed25519.scalarToBytes(x), Ed25519.scalarToBytes(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarSub(BigInteger x, String y) {
+        if (x == null || y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarSub(Ed25519.scalarToBytes(x), messageEncoder.decode(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarSub(String x, BigInteger y) {
+        if (x == null || y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarSub(messageEncoder.decode(x), Ed25519.scalarToBytes(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarSub(String x, String y) {
+        if (x == null || y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarSub(messageEncoder.decode(x), messageEncoder.decode(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarSub(String x, byte[] y) {
+        if (x == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarSub(messageEncoder.decode(x), y);
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarSub(byte[] x, String y) {
+        if (y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarSub(x, messageEncoder.decode(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarSub(BigInteger x, byte[] y) {
+        if (x == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarSub(Ed25519.scalarToBytes(x), y);
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarSub(byte[] x, BigInteger y) {
+        if (y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarSub(x, Ed25519.scalarToBytes(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarSub(byte[] x, byte[] y) {
+        byte[] result = Ed25519.scalarBuffer();
+        cryptoCoreEd25519ScalarSub(result, x, y);
+
+        return Ed25519.bytesToScalar(result);
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarMul(BigInteger x, BigInteger y) {
+        if (x == null || y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarMul(
+                Ed25519.scalarToBytes(x), Ed25519.scalarToBytes(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarMul(BigInteger x, String y) {
+        if (x == null || y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarMul(Ed25519.scalarToBytes(x), messageEncoder.decode(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarMul(String x, BigInteger y) {
+        if (x == null || y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarMul(messageEncoder.decode(x), Ed25519.scalarToBytes(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarMul(String x, String y) {
+        if (x == null || y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarMul(messageEncoder.decode(x), messageEncoder.decode(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarMul(String x, byte[] y) {
+        if (x == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarMul(messageEncoder.decode(x), y);
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarMul(byte[] x, String y) {
+        if (y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarMul(x, messageEncoder.decode(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarMul(BigInteger x, byte[] y) {
+        if (x == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarMul(Ed25519.scalarToBytes(x), y);
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarMul(byte[] x, BigInteger y) {
+        if (y == null) {
+            throw new IllegalArgumentException("null arguments are invalid");
+        }
+
+        return cryptoCoreEd25519ScalarMul(x, Ed25519.scalarToBytes(y));
+    }
+
+    @Override
+    public BigInteger cryptoCoreEd25519ScalarMul(byte[] x, byte[] y) {
+        byte[] result = Ed25519.scalarBuffer();
+        cryptoCoreEd25519ScalarMul(result, x, y);
+
+        return Ed25519.bytesToScalar(result);
+    }
 
     //// -------------------------------------------|
     //// Ristretto255
@@ -2601,125 +3217,124 @@ public abstract class LazySodium implements
     @Override
     public boolean cryptoCoreRistretto255IsValidPoint(byte[] point) {
         return point.length == Ristretto255.RISTRETTO255_BYTES
-                   && getSodium().crypto_core_ristretto255_is_valid_point(point) == 1;
+                && getSodium().crypto_core_ristretto255_is_valid_point(point) == 1;
     }
 
     @Override
     public void cryptoCoreRistretto255Random(byte[] point) {
-        Checker.ensurePointFits(point);
+        Ristretto255.Checker.ensurePointFits(point);
 
         getSodium().crypto_core_ristretto255_random(point);
     }
 
     @Override
     public boolean cryptoCoreRistretto255FromHash(byte[] point, byte[] hash) {
-        Checker.ensurePointFits(point);
-        Checker.checkHash(hash);
+        Ristretto255.Checker.ensurePointFits(point);
+        Ristretto255.Checker.checkHash(hash);
 
         return successful(getSodium().crypto_core_ristretto255_from_hash(point, hash));
     }
 
     @Override
     public boolean cryptoScalarmultRistretto255(byte[] result, byte[] n, byte[] point) {
-        Checker.ensurePointFits(result);
-        Checker.checkPoint(point);
-        Checker.checkScalar(n);
+        Ristretto255.Checker.ensurePointFits(result);
+        Ristretto255.Checker.checkPoint(point);
+        Ristretto255.Checker.checkScalar(n);
 
         return successful(getSodium().crypto_scalarmult_ristretto255(result, n, point));
     }
 
     @Override
     public boolean cryptoScalarmultRistretto255Base(byte[] result, byte[] n) {
-        Checker.ensurePointFits(result);
-        Checker.checkScalar(n);
+        Ristretto255.Checker.ensurePointFits(result);
+        Ristretto255.Checker.checkScalar(n);
 
         return successful(getSodium().crypto_scalarmult_ristretto255_base(result, n));
     }
 
     @Override
     public boolean cryptoCoreRistretto255Add(byte[] result, byte[] p, byte[] q) {
-        Checker.ensurePointFits(result);
-        Checker.checkPoint(p);
-        Checker.checkPoint(q);
+        Ristretto255.Checker.ensurePointFits(result);
+        Ristretto255.Checker.checkPoint(p);
+        Ristretto255.Checker.checkPoint(q);
 
         return successful(getSodium().crypto_core_ristretto255_add(result, p, q));
     }
 
     @Override
     public boolean cryptoCoreRistretto255Sub(byte[] result, byte[] p, byte[] q) {
-        Checker.ensurePointFits(result);
-        Checker.checkPoint(p);
-        Checker.checkPoint(q);
+        Ristretto255.Checker.ensurePointFits(result);
+        Ristretto255.Checker.checkPoint(p);
+        Ristretto255.Checker.checkPoint(q);
 
         return successful(getSodium().crypto_core_ristretto255_sub(result, p, q));
     }
 
     @Override
     public void cryptoCoreRistretto255ScalarRandom(byte[] scalar) {
-        Checker.ensureScalarFits(scalar);
+        Ristretto255.Checker.ensureScalarFits(scalar);
 
         getSodium().crypto_core_ristretto255_scalar_random(scalar);
     }
 
     @Override
     public void cryptoCoreRistretto255ScalarReduce(byte[] result, byte[] scalar) {
-        Checker.ensureScalarFits(result);
-        Checker.checkNonReducedScalar(scalar);
+        Ristretto255.Checker.ensureScalarFits(result);
+        Ristretto255.Checker.checkNonReducedScalar(scalar);
 
         getSodium().crypto_core_ristretto255_scalar_reduce(result, scalar);
     }
 
     @Override
     public boolean cryptoCoreRistretto255ScalarInvert(byte[] result, byte[] scalar) {
-        Checker.ensureScalarFits(result);
-        Checker.checkScalar(scalar);
+        Ristretto255.Checker.ensureScalarFits(result);
+        Ristretto255.Checker.checkScalar(scalar);
 
         return successful(getSodium().crypto_core_ristretto255_scalar_invert(result, scalar));
     }
 
     @Override
     public void cryptoCoreRistretto255ScalarNegate(byte[] result, byte[] scalar) {
-        Checker.ensureScalarFits(result);
-        Checker.checkScalar(scalar);
+        Ristretto255.Checker.ensureScalarFits(result);
+        Ristretto255.Checker.checkScalar(scalar);
 
         getSodium().crypto_core_ristretto255_scalar_negate(result, scalar);
     }
 
     @Override
     public void cryptoCoreRistretto255ScalarComplement(byte[] result, byte[] scalar) {
-        Checker.ensureScalarFits(result);
-        Checker.checkScalar(scalar);
+        Ristretto255.Checker.ensureScalarFits(result);
+        Ristretto255.Checker.checkScalar(scalar);
 
         getSodium().crypto_core_ristretto255_scalar_complement(result, scalar);
     }
 
     @Override
     public void cryptoCoreRistretto255ScalarAdd(byte[] result, byte[] x, byte[] y) {
-        Checker.ensureScalarFits(result);
-        Checker.checkScalar(x);
-        Checker.checkScalar(y);
+        Ristretto255.Checker.ensureScalarFits(result);
+        Ristretto255.Checker.checkScalar(x);
+        Ristretto255.Checker.checkScalar(y);
 
         getSodium().crypto_core_ristretto255_scalar_add(result, x, y);
     }
 
     @Override
     public void cryptoCoreRistretto255ScalarSub(byte[] result, byte[] x, byte[] y) {
-        Checker.ensureScalarFits(result);
-        Checker.checkScalar(x);
-        Checker.checkScalar(y);
+        Ristretto255.Checker.ensureScalarFits(result);
+        Ristretto255.Checker.checkScalar(x);
+        Ristretto255.Checker.checkScalar(y);
 
         getSodium().crypto_core_ristretto255_scalar_sub(result, x, y);
     }
 
     @Override
     public void cryptoCoreRistretto255ScalarMul(byte[] result, byte[] x, byte[] y) {
-        Checker.ensureScalarFits(result);
-        Checker.checkScalar(x);
-        Checker.checkScalar(y);
+        Ristretto255.Checker.ensureScalarFits(result);
+        Ristretto255.Checker.checkScalar(x);
+        Ristretto255.Checker.checkScalar(y);
 
         getSodium().crypto_core_ristretto255_scalar_mul(result, x, y);
     }
-
 
     // -- lazy
 
@@ -2749,7 +3364,6 @@ public abstract class LazySodium implements
         return cryptoCoreRistretto255FromHash(messageEncoder.decode(hash));
     }
 
-
     @Override
     public RistrettoPoint cryptoCoreRistretto255FromHash(byte[] hash) throws SodiumException {
         byte[] point = Ristretto255.pointBuffer();
@@ -2763,7 +3377,7 @@ public abstract class LazySodium implements
 
     @Override
     public RistrettoPoint cryptoScalarmultRistretto255(BigInteger n, RistrettoPoint point)
-        throws SodiumException {
+            throws SodiumException {
         if (n == null || point == null) {
             throw new IllegalArgumentException("null arguments are invalid");
         }
@@ -2773,7 +3387,7 @@ public abstract class LazySodium implements
 
     @Override
     public RistrettoPoint cryptoScalarmultRistretto255(String nEnc, RistrettoPoint point)
-        throws SodiumException {
+            throws SodiumException {
         if (nEnc == null || point == null) {
             throw new IllegalArgumentException("null arguments are invalid");
         }
@@ -2783,13 +3397,13 @@ public abstract class LazySodium implements
 
     @Override
     public RistrettoPoint cryptoScalarmultRistretto255(byte[] n, RistrettoPoint point)
-        throws SodiumException {
+            throws SodiumException {
 
         byte[] result = Ristretto255.pointBuffer();
 
         if (!cryptoScalarmultRistretto255(result, n, point.toBytes())) {
             throw new SodiumException(
-                "Scalar multiplication failed. The resulting point was the identity element.");
+                    "Scalar multiplication failed. The resulting point was the identity element.");
         }
 
         return RistrettoPoint.fromBytes(this, result);
@@ -2805,7 +3419,7 @@ public abstract class LazySodium implements
 
     @Override
     public RistrettoPoint cryptoScalarmultRistretto255Base(String nEnc)
-        throws SodiumException {
+            throws SodiumException {
         if (nEnc == null) {
             throw new IllegalArgumentException("null arguments are invalid");
         }
@@ -2819,7 +3433,7 @@ public abstract class LazySodium implements
 
         if (!cryptoScalarmultRistretto255Base(result, n)) {
             throw new SodiumException(
-                "Scalar multiplication failed. n was 0.");
+                    "Scalar multiplication failed. n was 0.");
         }
 
         return RistrettoPoint.fromBytes(this, result);
@@ -2827,7 +3441,7 @@ public abstract class LazySodium implements
 
     @Override
     public RistrettoPoint cryptoCoreRistretto255Add(RistrettoPoint p, RistrettoPoint q)
-        throws SodiumException {
+            throws SodiumException {
         if (p == null || q == null) {
             throw new IllegalArgumentException("null arguments are invalid");
         }
@@ -2842,7 +3456,7 @@ public abstract class LazySodium implements
 
     @Override
     public RistrettoPoint cryptoCoreRistretto255Sub(RistrettoPoint p, RistrettoPoint q)
-        throws SodiumException {
+            throws SodiumException {
 
         if (p == null || q == null) {
             throw new IllegalArgumentException("null arguments are invalid");
@@ -2892,7 +3506,7 @@ public abstract class LazySodium implements
 
     @Override
     public BigInteger cryptoCoreRistretto255ScalarInvert(BigInteger scalar)
-        throws SodiumException {
+            throws SodiumException {
         if (scalar == null) {
             throw new IllegalArgumentException("null arguments are invalid");
         }
@@ -2902,7 +3516,7 @@ public abstract class LazySodium implements
 
     @Override
     public BigInteger cryptoCoreRistretto255ScalarInvert(String scalarEnc)
-        throws SodiumException {
+            throws SodiumException {
         if (scalarEnc == null) {
             throw new IllegalArgumentException("null arguments are invalid");
         }
@@ -2980,7 +3594,7 @@ public abstract class LazySodium implements
         }
 
         return cryptoCoreRistretto255ScalarAdd(
-            Ristretto255.scalarToBytes(x), Ristretto255.scalarToBytes(y));
+                Ristretto255.scalarToBytes(x), Ristretto255.scalarToBytes(y));
     }
 
     @Override
@@ -3000,7 +3614,7 @@ public abstract class LazySodium implements
 
         return cryptoCoreRistretto255ScalarAdd(messageEncoder.decode(x), Ristretto255.scalarToBytes(y));
     }
-    
+
     @Override
     public BigInteger cryptoCoreRistretto255ScalarAdd(String x, String y) {
         if (x == null || y == null) {
@@ -3009,7 +3623,7 @@ public abstract class LazySodium implements
 
         return cryptoCoreRistretto255ScalarAdd(messageEncoder.decode(x), messageEncoder.decode(y));
     }
-    
+
     @Override
     public BigInteger cryptoCoreRistretto255ScalarAdd(String x, byte[] y) {
         if (x == null) {
@@ -3018,7 +3632,7 @@ public abstract class LazySodium implements
 
         return cryptoCoreRistretto255ScalarAdd(messageEncoder.decode(x), y);
     }
-    
+
     @Override
     public BigInteger cryptoCoreRistretto255ScalarAdd(byte[] x, String y) {
         if (y == null) {
@@ -3027,7 +3641,7 @@ public abstract class LazySodium implements
 
         return cryptoCoreRistretto255ScalarAdd(x, messageEncoder.decode(y));
     }
-    
+
     @Override
     public BigInteger cryptoCoreRistretto255ScalarAdd(BigInteger x, byte[] y) {
         if (x == null) {
@@ -3036,7 +3650,7 @@ public abstract class LazySodium implements
 
         return cryptoCoreRistretto255ScalarAdd(Ristretto255.scalarToBytes(x), y);
     }
-    
+
     @Override
     public BigInteger cryptoCoreRistretto255ScalarAdd(byte[] x, BigInteger y) {
         if (y == null) {
@@ -3061,7 +3675,7 @@ public abstract class LazySodium implements
         }
 
         return cryptoCoreRistretto255ScalarSub(
-            Ristretto255.scalarToBytes(x), Ristretto255.scalarToBytes(y));
+                Ristretto255.scalarToBytes(x), Ristretto255.scalarToBytes(y));
     }
 
     @Override
@@ -3142,7 +3756,7 @@ public abstract class LazySodium implements
         }
 
         return cryptoCoreRistretto255ScalarMul(
-            Ristretto255.scalarToBytes(x), Ristretto255.scalarToBytes(y));
+                Ristretto255.scalarToBytes(x), Ristretto255.scalarToBytes(y));
     }
 
     @Override
@@ -3306,9 +3920,7 @@ public abstract class LazySodium implements
         return trimmed;
     }
 
-
     public abstract Sodium getSodium();
-
 
     // --
     //// -------------------------------------------|
@@ -3318,6 +3930,5 @@ public abstract class LazySodium implements
     public static void main(String[] args) throws SodiumException {
 
     }
-
 
 }

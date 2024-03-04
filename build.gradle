@@ -10,7 +10,6 @@
 plugins {
     id 'application'
     id 'java-library'
-    id 'maven'
     id 'maven-publish'
     id 'signing'
     id 'biz.aQute.bnd.builder'
@@ -51,6 +50,7 @@ dependencies {
     implementation 'net.java.dev.jna:jna:5.12.1'
     implementation 'com.goterl:resource-loader:2.0.2'
     implementation 'org.slf4j:slf4j-api:2.0.3'
+    testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.0'
 }
@@ -64,12 +64,12 @@ signing {
 }
 
 task sourcesJar(type: Jar, dependsOn: classes) {
-    classifier = 'sources'
+    archiveClassifier = 'sources'
     from sourceSets.main.allSource
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {
-    classifier = 'javadoc'
+    archiveClassifier = 'javadoc'
     from javadoc.destinationDir
 }
 
@@ -194,6 +194,14 @@ publishing {
     }
 }
 
+processResources {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+sourcesJar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 // Force character encoding in case the workspace was not set up correctly
 tasks.withType(Javadoc) {
     options.encoding = 'UTF-8'
@@ -222,4 +230,8 @@ tasks.withType(Test) {
             }
         }
     }
+}
+
+test {
+  useJUnitPlatform()
 }

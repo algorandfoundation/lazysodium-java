@@ -18,5 +18,5 @@ buildscript {
 }
 
 rootProject.name = 'lazysodium-java'
-include 'sample-app'
+//include 'sample-app' // TODO: temporarily commented out due to error
 
