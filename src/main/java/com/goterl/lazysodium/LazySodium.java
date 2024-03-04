@@ -268,6 +268,10 @@ public abstract class LazySodium implements
         if (context.length != KeyDerivation.CONTEXT_BYTES) {
             throw new IllegalArgumentException("Context length is wrong: " + context.length);
         }
+        if (masterKey.length != KeyDerivation.MASTER_KEY_BYTES) {
+            throw new IllegalArgumentException("Master key length is wrong: " + masterKey.length);
+        }
+
         return getSodium().crypto_kdf_derive_from_key(subKey, subKeyLen, subKeyId, context, masterKey);
     }
 
