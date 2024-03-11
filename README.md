@@ -1,6 +1,6 @@
 # Why this Fork
 
-This fork was created to make the Ed25519 low-level API functions available, e.g. Ed25519 scalar multiplication and so on. While Ristretto255 and Curve25519 do have all or some methods exposed, Ed25519 do not.
+This fork was created to make the Ed25519 low-level API functions available, e.g. Ed25519 scalar multiplication. While Ristretto255 and Curve25519 do have all or some methods exposed, Ed25519 do not.
 
 Additionally, since this is meant to be used for Algorand's wallet the LazySodium-Android files (SodiumAndroid, LazySodiumAndroid, Base64) have been added under the main path. However, the binaries are not kept together with the Linux/Mac/Windows binaries, they can be found in the LazySodium-Android repository [here](https://github.com/terl/lazysodium-android/tree/master/app/src/main/jniLibs). Just as the binaries are stored under `lazysodium-android/app/src/main
 /jniLibs/` you should copy+paste them into your Android app in the equivalent path with the same jniLibs folder name, and then adjust the build gradle file accordingly.
