@@ -8,18 +8,18 @@
 
 package com.goterl.lazysodium;
 
-import android.util.Base64;
+import java.util.Base64;
 import com.goterl.lazysodium.utils.Base64Facade;
 
 class Base64Android implements Base64Facade {
 
     @Override
     public String encode(byte[] cipher) {
-        return Base64.encodeToString(cipher, Base64.NO_WRAP);
+        return Base64.getEncoder().encodeToString(cipher);
     }
 
     @Override
     public byte[] decode(String cipherText) {
-        return Base64.decode(cipherText, Base64.NO_WRAP);
+        return Base64.getDecoder().decode(cipherText);
     }
 }
